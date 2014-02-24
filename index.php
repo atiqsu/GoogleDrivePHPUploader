@@ -78,5 +78,12 @@ $createdFile = $service->files->insert($file, array(
       'data' => $data,
       'mimeType' => $mime,
     ));
+
+
+$permission = new Google_Permission();
+$permission->setValue("inmobi.com");
+$permission->setType("domain");
+$permission->setRole("reader");
+$service->permissions->insert($createdFile['id'], $permission);
 print_r($createdFile['alternateLink']."\n");
 ?>
