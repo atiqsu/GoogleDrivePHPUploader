@@ -37,15 +37,15 @@ if($client->isAccessTokenExpired()) {
 
 //Insert a file
 $file = new Google_DriveFile();
-$file->setTitle('PPT Test');
+$file->setTitle('My Document');
 $file->setDescription('A test document');
-$file->setMimeType("application/vnd.openxmlformats-officedocument.presentationml.presentation");
+$file->setMimeType("text/plain");
 
-$data = file_get_contents("ppt.pptx");
+$data = file_get_contents("document.txt");
 
 $createdFile = $service->files->insert($file, array(
       'data' => $data,
-      'mimeType' => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      'mimeType' => "text/plain",
     ));
 print_r($createdFile['alternateLink']."\n");
 ?>
