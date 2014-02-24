@@ -1,4 +1,34 @@
 <?php
+if(!(php_sapi_name() == 'cli' || PHP_SAPI == 'cli')) {
+		     if(isset($_GET['filepath'])) {
+		     				  $filePath = $_GET['filepath'];
+						  if(!file_exists($filePath)) {
+						  			      exit("Specified file does not exist");
+									      }
+									      if(isset($_GET['mime'])) {
+									      			       $mime = $_GET['mime'];
+												       } else {
+												       	 $mime = mime_content_type($filePath);
+													 }
+		     } else {
+		       exit("No file path given.");
+		       }
+} else {
+  $optionsArray = getopt("f:m::");
+  if(isset($optionsArray['f'])) {
+  				$filePath= $optionsArray['f'];
+				if(!file_exists($filePath)) {
+							    exit("Specified file does not exist");
+							    }
+				if(isset($optionsArray['m']) && $optionsArray['m']) {
+							     $mime = $optionsArray['m'];
+				} else {
+				  $mime = mime_content_type($filePath);
+				  }
+  } else {
+    exit("No file name or path given\n");
+  }
+}
 require_once 'google-api-php-client/src/Google_Client.php';
 require_once 'google-api-php-client/src/contrib/Google_DriveService.php';
 
@@ -33,19 +63,20 @@ if($client->isAccessTokenExpired()) {
 				    echo "Access token expired";
 				    $decodedAccessToken = json_decode($client->getAccessToken());
 				    $client->refreshToken($decodedAccessToken->refresh_token);
+				    file_put_contents("accesstoken.txt", $client->getAccessToken(), LOCK_EX);
 }
 
 //Insert a file
 $file = new Google_DriveFile();
 $file->setTitle('My Document');
 $file->setDescription('A test document');
-$file->setMimeType("text/plain");
+$file->setMimeType($mime);
 
-$data = file_get_contents("document.txt");
+$data = file_get_contents($filePath);
 
 $createdFile = $service->files->insert($file, array(
       'data' => $data,
-      'mimeType' => "text/plain",
+      'mimeType' => $mime,
     ));
 print_r($createdFile['alternateLink']."\n");
 ?>
