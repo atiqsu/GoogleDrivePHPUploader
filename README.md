@@ -1,7 +1,7 @@
 Google Drive Uploader
 =====================
 
-Upload files to Google Drive from PHP.
+Upload files to Google Drive from PHP. Based on https://developers.google.com/drive/web/quickstart/quickstart-php.
 
 Instructions
 ------------
