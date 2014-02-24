@@ -12,6 +12,8 @@ Go to APIs & auth -> Credentials in the dashboard for that app and create a new 
 
 Update client_id and client_secret in client_secret.json which can be copied from client_secret.json.sample. Note you can also download the json file from api console and rename it to client_secret.json.
 
+You will be request to enter the access token once.
+
 Usage
 -----
 
