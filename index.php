@@ -1,34 +1,72 @@
 <?php
+/*
+ * Show php errors
+ * and set memory limit to infinity to allow 
+ * large file uploads.
+ */
+ini_set('display_errors', '1');
+ini_set('memory_limit', '-1');
+
+require('mime.php');
 if(!(php_sapi_name() == 'cli' || PHP_SAPI == 'cli')) {
-		     if(isset($_GET['filepath'])) {
-		     				  $filePath = $_GET['filepath'];
-						  if(!file_exists($filePath)) {
-						  			      exit("Specified file does not exist");
-									      }
-									      if(isset($_GET['mime'])) {
-									      			       $mime = $_GET['mime'];
-												       } else {
-												       	 $mime = mime_content_type($filePath);
-													 }
-		     } else {
-		       exit("No file path given.");
-		       }
+	if(isset($_GET['filepath'])) {
+		$filePath = $_GET['filepath'];
+		if(isset($_GET['title'])){
+			$docTitle = $_GET['title'];
+		} else {
+			$docTitle = "Untitled Document";
+		}
+		if(!file_exists($filePath)) {
+            header('HTTP/1.1 400 Bad Request', true, 400);
+            exit;
+		}
+		if(isset($_GET['mime'])) {
+			$mime = $_GET['mime'];
+		} else {
+			$mime = get_mime($filePath);
+		}
+	} else {
+        header('HTTP/1.1 400 Bad Request', true, 400);
+		exit;
+	}
 } else {
-  $optionsArray = getopt("f:m::");
-  if(isset($optionsArray['f'])) {
-  				$filePath= $optionsArray['f'];
-				if(!file_exists($filePath)) {
-							    exit("Specified file does not exist");
-							    }
-				if(isset($optionsArray['m']) && $optionsArray['m']) {
-							     $mime = $optionsArray['m'];
-				} else {
-				  $mime = mime_content_type($filePath);
-				  }
-  } else {
-    exit("No file name or path given\n");
-  }
+	$optionsArray = getopt("f:m:t:");
+
+	if(isset($optionsArray['f'])) {
+		if(isset($optionsArray['t'])){
+			$docTitle = $optionsArray['t'];
+		} else {
+			$docTitle = "Untitled Document";
+		}
+		$filePath= $optionsArray['f'];
+		if(!file_exists($filePath)) {
+			exit("Specified file does not exist");
+		}
+		if(isset($optionsArray['m']) && $optionsArray['m']) {
+			$mime = $optionsArray['m'];
+		} else {
+			$mime = get_mime($filePath);
+		}
+	} else {
+		exit("No file name or path given\n");
+	}
 }
+
+/*
+ * Use apc store as a cache
+ * Also consider using mysql as a datastore
+ * Since apc is not very scalable
+ * For the time being however
+ * APC Works
+ */
+
+$fileData = apc_fetch($filePath);
+
+if($fileData !== false) {
+    print_r(json_encode($fileData));
+    exit;
+}
+
 require_once 'google-api-php-client/src/Google_Client.php';
 require_once 'google-api-php-client/src/contrib/Google_DriveService.php';
 
@@ -46,38 +84,42 @@ $service = new Google_DriveService($client);
 
 // Exchange authorization code for access token
 if(file_exists("accesstoken.txt")) {
-$accessToken = file_get_contents("accesstoken.txt");
+	$accessToken = file_get_contents("accesstoken.txt");
 } else {
-$authUrl = $client->createAuthUrl();
+	$authUrl = $client->createAuthUrl();
 
-//Request authorization
-print "Please visit:\n$authUrl\n\n";
-print "Please enter the auth code:\n";
-$authCode = trim(fgets(STDIN));
+	//Request authorization
+	print "Please visit:\n$authUrl\n\n";
+	print "Please enter the auth code:\n";
+	$authCode = trim(fgets(STDIN));
 
-	    $accessToken = $client->authenticate($authCode);
-	    file_put_contents("accesstoken.txt", $accessToken, LOCK_EX);
+	$accessToken = $client->authenticate($authCode);
+	file_put_contents("accesstoken.txt", $accessToken, LOCK_EX);
 }
 $client->setAccessToken($accessToken);
 if($client->isAccessTokenExpired()) {
-				    echo "Access token expired";
-				    $decodedAccessToken = json_decode($client->getAccessToken());
-				    $client->refreshToken($decodedAccessToken->refresh_token);
-				    file_put_contents("accesstoken.txt", $client->getAccessToken(), LOCK_EX);
+	$decodedAccessToken = json_decode($client->getAccessToken());
+	$client->refreshToken($decodedAccessToken->refresh_token);
+	file_put_contents("accesstoken.txt", $client->getAccessToken(), LOCK_EX);
 }
 
 //Insert a file
+
 $file = new Google_DriveFile();
-$file->setTitle('My Document');
-$file->setDescription('A test document');
+$file->setTitle($docTitle);
+$file->setDescription('Edge Document Preview');
 $file->setMimeType($mime);
 
+$labels = new Google_DriveFileLabels();
+$labels->setRestricted(true);
+
+$file->setLabels($labels);
 $data = file_get_contents($filePath);
 
 $createdFile = $service->files->insert($file, array(
-      'data' => $data,
-      'mimeType' => $mime,
-    ));
+			'data' => $data,
+			'mimeType' => $mime,
+			));
 
 
 $permission = new Google_Permission();
@@ -85,5 +127,6 @@ $permission->setValue("inmobi.com");
 $permission->setType("domain");
 $permission->setRole("reader");
 $service->permissions->insert($createdFile['id'], $permission);
-print_r($createdFile['alternateLink']."\n");
+apc_store($filePath, $createdFile);
+print_r(json_encode($createdFile));
 ?>
