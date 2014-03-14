@@ -53,18 +53,14 @@ if(!(php_sapi_name() == 'cli' || PHP_SAPI == 'cli')) {
 }
 
 /*
- * Use apc store as a cache
- * Also consider using mysql as a datastore
- * Since apc is not very scalable
- * For the time being however
- * APC Works
+ * Using dba for file based db.
  */
-
-$fileData = apc_fetch($filePath);
-
-if($fileData !== false) {
-    print_r(json_encode($fileData));
-    exit;
+$fdb = dba_open("./cache.db", "wl");
+if($fdb) {
+    if($fileData = dba_fetch($filePath,$fdb)) {
+        print_r($fileData);
+        exit;
+    }
 }
 
 require_once 'google-api-php-client/src/Google_Client.php';
@@ -127,6 +123,6 @@ $permission->setValue("inmobi.com");
 $permission->setType("domain");
 $permission->setRole("reader");
 $service->permissions->insert($createdFile['id'], $permission);
-apc_store($filePath, $createdFile);
+dba_insert($filePath, json_encode($createdFile), $fdb);
 print_r(json_encode($createdFile));
 ?>
